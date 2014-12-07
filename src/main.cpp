@@ -21,21 +21,16 @@
  *
  ******************************************************************************/
 
-#include <ros/console.h>
 #include <ros/ros.h>
-#include <tf/transform_listener.h>
-#include <ros/publisher.h>
 #include <pcl_ros/point_cloud.h>
-#include <pcl/point_types.h>
-#include <pcl/io/pcd_io.h>
-#include <pcl/filters/statistical_outlier_removal.h>
 #include <bta.h>
 
 
-typedef pcl::PointCloud<pcl::PointXYZI>		FrameXYZA;
+typedef pcl::PointCloud<pcl::PointXYZ>		FrameXYZ;
+typedef pcl::PointCloud<pcl::PointXYZI>		FrameXYZAmp;
 
 static void BTA_CALLCONV infoEvent(BTA_EventId eventId, int8_t *msg) {
-    ROS_INFO("   Callback: infoEvent (%d) %s\n", eventId, msg);
+    ROS_INFO("   BTA infoEvent (%d) %s\n", eventId, msg);
 }
 
 
@@ -104,7 +99,7 @@ int main(int argc, char **argv)
      * buffer up before throwing some away.
      */
     ros::Publisher pub_point_cloud;
-    pub_point_cloud = n.advertise<FrameXYZA>("tof_point_cloud", 1);
+    pub_point_cloud = n.advertise<FrameXYZ>("point_cloud", 1);
 
     ros::Rate loop_rate(10);
 
@@ -119,7 +114,7 @@ int main(int argc, char **argv)
     	bool amp = false;
     
 		float *xCoordinates, *yCoordinates, *zCoordinates;
-		uint16_t *amplitudes;
+		//uint16_t *amplitudes;
 		BTA_DataFormat dataFormat;
 		BTA_Unit unit;
 		uint16_t xRes, yRes;
@@ -128,40 +123,52 @@ int main(int argc, char **argv)
 		status = BTAgetFrame(btaHandle, &frame, 3000);
 		if (status != BTA_StatusOk) {
 			ROS_ERROR("FAILED TO GET FRAME");
-		} else {
-		
-			status = BTAgetXYZcoordinates(frame, (void **)&xCoordinates, (void **)&yCoordinates, (void **)&zCoordinates, &dataFormat, &unit, &xRes, &yRes);
-			if (status == BTA_StatusOk) {
-				if (dataFormat == BTA_DataFormatFloat32) {
-					if (unit == BTA_UnitMeter) {
+		}
+		else
+		{
+			status = BTAgetXYZcoordinates(frame, (void**)&xCoordinates, (void**)&yCoordinates, (void**)&zCoordinates, &dataFormat, &unit, &xRes, &yRes);
+			if (status == BTA_StatusOk)
+			{
+				if (dataFormat == BTA_DataFormatFloat32)
+				{
+					if (unit == BTA_UnitMeter)
+					{
 						cart = true;
 					}
 				}
 			}
-		
-			status = BTAgetAmplitudes(frame, (void **)&amplitudes, &dataFormat, &unit, &xRes, &yRes);
-			if (status == BTA_StatusOk) 
+			/*
+			ROS_INFO("BTAgetAmplitudes");
+			status = BTAgetAmplitudes(frame, (void**)&amplitudes, &dataFormat, &unit, &xRes, &yRes);
+			ROS_INFO("now check...");
+			ROS_INFO_STREAM("status: " << status);
+			if (status == BTA_StatusOk)
 			{
-				if (dataFormat == BTA_DataFormatUInt16) 
+				ROS_INFO("BTAgetAmplitudes ok");
+				if (dataFormat == BTA_DataFormatUInt16)
 				{
-					if (unit == BTA_UnitUnitLess) 
+					ROS_INFO("data format ok");
+					if (unit == BTA_UnitUnitLess)
 					{
+						ROS_INFO("unit ok");
+						ROS_INFO("got amplitudes...");
 						amp = true;
 					}
 				}
 			}
-			if (cart & amp)
+			*/
+			if (cart)
 			{
-				FrameXYZA::Ptr msg (new FrameXYZA);
+				FrameXYZ::Ptr msg (new FrameXYZ);
 				msg->header.frame_id = "blt_tof";
 		
 				for (int i = 0; i < xRes*yRes; i++)
 				{
-					pcl::PointXYZI tmp_point;
+					pcl::PointXYZ tmp_point;
 					tmp_point.x = (float)xCoordinates[i];
 					tmp_point.y = (float)yCoordinates[i];
 					tmp_point.z = (float)zCoordinates[i];
-					tmp_point.intensity = (float)amplitudes[i];
+					//tmp_point.intensity = (float)amplitudes[i];
 			
 					msg->points.push_back(tmp_point);
 				}
@@ -176,6 +183,7 @@ int main(int argc, char **argv)
 				 * in the constructor above.
 				 */
 				pub_point_cloud.publish(msg);
+				cart = amp = false;
 			}
 		
     	}
