@@ -22,17 +22,8 @@
  ******************************************************************************/
 
 #include <ros/ros.h>
-#include <pcl_ros/point_cloud.h>
+#include <blt_tof.h>
 #include <bta.h>
-
-
-typedef pcl::PointCloud<pcl::PointXYZ>		FrameXYZ;
-typedef pcl::PointCloud<pcl::PointXYZI>		FrameXYZAmp;
-
-static void BTA_CALLCONV infoEvent(BTA_EventId eventId, int8_t *msg) {
-    ROS_INFO("   BTA infoEvent (%d) %s\n", eventId, msg);
-}
-
 
 /**
  * This tutorial demonstrates simple sending of messages over the ROS system.
@@ -52,34 +43,9 @@ int main(int argc, char **argv)
      */
     ros::NodeHandle n;
     
-    BTA_Config config;
-    BTAinitConfig(&config);
-    config.frameMode = BTA_FrameModeXYZ;
-    config.infoEvent = &infoEvent;
-    config.verbosity = 5;
-
-    
-    BTA_Status status;
     BTA_Handle btaHandle;
-    status = BTAopen(&config, &btaHandle);
-    if (status != BTA_StatusOk) {
-    	ROS_ERROR("Couldn't open Sensor!");
-        return -1;
-    }
-    
-    BTA_DeviceInfo *deviceInfo;
-    ROS_INFO("BTAgetDeviceInfo()");
-    status = BTAgetDeviceInfo(btaHandle, &deviceInfo);
-    if (status != BTA_StatusOk) {
-    	ROS_ERROR("Couldn't get device info!");
-        return -1;
-    }
-    ROS_INFO("Device type: 0x%x", deviceInfo->deviceType);
-    ROS_INFO("BTAfreeDeviceInfo()");
-    BTAfreeDeviceInfo(deviceInfo);
-    
-    ROS_INFO("Service running: %d", BTAisRunning(btaHandle));
-    ROS_INFO("Connection up: %d", BTAisConnected(btaHandle));
+
+    blt_tof_connect(&btaHandle);
 
     /**
      * The advertise() function is how you tell ROS that you want to
@@ -110,86 +76,16 @@ int main(int argc, char **argv)
     int count = 0;
     while (ros::ok())
     {
-    	bool cart = false;
-    	bool amp = false;
-    
-		float *xCoordinates, *yCoordinates, *zCoordinates;
-		//uint16_t *amplitudes;
-		BTA_DataFormat dataFormat;
-		BTA_Unit unit;
-		uint16_t xRes, yRes;
-		
-		BTA_Frame *frame;
-		status = BTAgetFrame(btaHandle, &frame, 3000);
-		if (status != BTA_StatusOk) {
-			ROS_ERROR("FAILED TO GET FRAME");
-		}
-		else
-		{
-			status = BTAgetXYZcoordinates(frame, (void**)&xCoordinates, (void**)&yCoordinates, (void**)&zCoordinates, &dataFormat, &unit, &xRes, &yRes);
-			if (status == BTA_StatusOk)
-			{
-				if (dataFormat == BTA_DataFormatFloat32)
-				{
-					if (unit == BTA_UnitMeter)
-					{
-						cart = true;
-					}
-				}
-			}
-			/*
-			ROS_INFO("BTAgetAmplitudes");
-			status = BTAgetAmplitudes(frame, (void**)&amplitudes, &dataFormat, &unit, &xRes, &yRes);
-			ROS_INFO("now check...");
-			ROS_INFO_STREAM("status: " << status);
-			if (status == BTA_StatusOk)
-			{
-				ROS_INFO("BTAgetAmplitudes ok");
-				if (dataFormat == BTA_DataFormatUInt16)
-				{
-					ROS_INFO("data format ok");
-					if (unit == BTA_UnitUnitLess)
-					{
-						ROS_INFO("unit ok");
-						ROS_INFO("got amplitudes...");
-						amp = true;
-					}
-				}
-			}
-			*/
-			if (cart)
-			{
-				FrameXYZ::Ptr msg (new FrameXYZ);
-				msg->header.frame_id = "blt_tof";
-		
-				for (int i = 0; i < xRes*yRes; i++)
-				{
-					pcl::PointXYZ tmp_point;
-					tmp_point.x = (float)xCoordinates[i];
-					tmp_point.y = (float)yCoordinates[i];
-					tmp_point.z = (float)zCoordinates[i];
-					//tmp_point.intensity = (float)amplitudes[i];
-			
-					msg->points.push_back(tmp_point);
-				}
-		
-				msg->height = 1;
-				msg->width = xRes * yRes;
-		
-				/**
-				 * The publish() function is how you send messages. The parameter
-				 * is the message object. The type of this object must agree with the type
-				 * given as a template parameter to the advertise<>() call, as was done
-				 * in the constructor above.
-				 */
-				pub_point_cloud.publish(msg);
-				cart = amp = false;
-			}
-		
-    	}
-    	
-    	BTAfreeFrame(&frame);
+		FrameXYZ::Ptr msg (new FrameXYZ);
+    	blt_tof_get_frame(btaHandle, msg);
 
+		/**
+		 * The publish() function is how you send messages. The parameter
+		 * is the message object. The type of this object must agree with the type
+		 * given as a template parameter to the advertise<>() call, as was done
+		 * in the constructor above.
+		 */
+		pub_point_cloud.publish(msg);
         ros::spinOnce();
 
         loop_rate.sleep();
