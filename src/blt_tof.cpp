@@ -12,7 +12,7 @@ void blt_tof_connect(BTA_Handle *btaHandle)
     BTA_Status status;
     
     BTAinitConfig(&config);
-    config.frameMode = BTA_FrameModeXYZ;
+    config.frameMode = BTA_FrameModeXYZAmp;
     config.infoEvent = &infoEvent;
     config.verbosity = 5;
     
@@ -40,13 +40,13 @@ void blt_tof_connect(BTA_Handle *btaHandle)
 }
 
 
-void blt_tof_get_frame(BTA_Handle btaHandle, FrameXYZ::Ptr msg)
+void blt_tof_get_frame(BTA_Handle btaHandle, FrameXYZAmp::Ptr msg)
 {
     bool cart = false;
-    //bool amp = false;
+    bool amp = false;
 
     float *xCoordinates, *yCoordinates, *zCoordinates;
-    //uint16_t *amplitudes;
+    float *amplitudes;
     BTA_DataFormat dataFormat;
     BTA_Unit unit;
     uint16_t xRes, yRes;
@@ -70,30 +70,34 @@ void blt_tof_get_frame(BTA_Handle btaHandle, FrameXYZ::Ptr msg)
                 }
             }
         }
-        /*
+        
         status = BTAgetAmplitudes(frame, (void**)&amplitudes, &dataFormat, &unit, &xRes, &yRes);
         if (status == BTA_StatusOk)
         {
-            ROS_INFO("BTAgetAmplitudes ok");
-            if (dataFormat == BTA_DataFormatUInt16)
+            //ROS_INFO("Got Amplitudes");
+            //ROS_INFO_STREAM("dataFormat: " << dataFormat << "; unit: " << unit);
+            if (dataFormat == BTA_DataFormatFloat32)
             {
+                //ROS_INFO("dataFormat right");
                 if (unit == BTA_UnitUnitLess)
                 {
+                    //ROS_INFO("unit right");
                     amp = true;
                 }
             }
         }
-        */
         
-        if (cart)
+        
+        if (cart & amp)
         {
+            ROS_INFO("Create Cloud...");
             for (int i = 0; i < xRes*yRes; i++)
             {
-                pcl::PointXYZ tmp_point;
+                pcl::PointXYZI tmp_point;
                 tmp_point.x = (float)xCoordinates[i];
                 tmp_point.y = (float)yCoordinates[i];
                 tmp_point.z = (float)zCoordinates[i];
-                //tmp_point.intensity = (float)amplitudes[i];
+                tmp_point.intensity = (float)amplitudes[i];
         
                 msg->points.push_back(tmp_point);
             }
@@ -103,6 +107,7 @@ void blt_tof_get_frame(BTA_Handle btaHandle, FrameXYZ::Ptr msg)
             msg->width = xRes * yRes;
     
             cart = false;
+            amp = false;
         }
     
     }

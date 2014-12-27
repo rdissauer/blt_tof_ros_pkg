@@ -65,7 +65,7 @@ int main(int argc, char **argv)
      * buffer up before throwing some away.
      */
     ros::Publisher pub_point_cloud;
-    pub_point_cloud = n.advertise<FrameXYZ>("point_cloud", 1);
+    pub_point_cloud = n.advertise<FrameXYZAmp>("point_cloud_xyz", 1);
 
     ros::Rate loop_rate(10);
 
@@ -76,7 +76,7 @@ int main(int argc, char **argv)
     int count = 0;
     while (ros::ok())
     {
-		FrameXYZ::Ptr msg (new FrameXYZ);
+		FrameXYZAmp::Ptr msg (new FrameXYZAmp);
     	blt_tof_get_frame(btaHandle, msg);
 
 		/**
