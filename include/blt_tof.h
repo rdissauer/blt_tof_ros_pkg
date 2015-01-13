@@ -1,7 +1,6 @@
 #ifndef BLT_TOF_H_INCLUDED
 #define BLT_TOF_H_INCLUDED
 
-#define PLAT_LINUX
 
 #include <pcl_ros/point_cloud.h>
 #include <bta.h>
